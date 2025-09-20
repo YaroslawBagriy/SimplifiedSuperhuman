@@ -4,6 +4,8 @@ from typing import Dict, Any, List
 from app.services.email_topic_inference import EmailTopicInferenceService
 from app.dataclasses import Email
 from app.features.factory import FeatureGeneratorFactory
+from pathlib import Path
+import json
 
 router = APIRouter()
 
@@ -26,6 +28,10 @@ class EmailAddResponse(BaseModel):
     message: str
     email_id: int
 
+class Topic(BaseModel):
+    topic: str
+    description: str
+
 @router.post("/emails/classify", response_model=EmailClassificationResponse)
 async def classify_email(request: EmailRequest):
     try:
@@ -39,6 +45,30 @@ async def classify_email(request: EmailRequest):
             features=result["features"],
             available_topics=result["available_topics"]
         )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/topics")
+async def topics(topic: Topic):
+    """Post new email topic"""
+    try:
+        # Add new topic to topic_keywords store
+        file_path = Path.cwd() / "data" / "topic_keywords.json"
+        topic_keywords = json.loads(file_path.read_text(encoding="utf-8"))
+
+        key = topic.topic
+        # Check if the topic already exists
+        # If it does, return false and don't add the topic
+        if key in topic_keywords:
+            return False
+
+        # store as an object with a description as a field
+        topic_keywords[key] = {"description": topic.description}
+
+        file_path.write_text(json.dumps(topic_keywords, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        # Return True if topic was added successfully
+        return True
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
