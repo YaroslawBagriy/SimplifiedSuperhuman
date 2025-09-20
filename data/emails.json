@@ -1,1 +1,7 @@
-[]
+[
+  {
+    "subject": "string",
+    "body": "string",
+    "topic": "string"
+  }
+]

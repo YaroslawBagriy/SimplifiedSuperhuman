@@ -6,6 +6,7 @@ from app.dataclasses import Email
 from app.features.factory import FeatureGeneratorFactory
 from pathlib import Path
 import json
+from typing import Optional
 
 router = APIRouter()
 
@@ -16,7 +17,7 @@ class EmailRequest(BaseModel):
 class EmailWithTopicRequest(BaseModel):
     subject: str
     body: str
-    topic: str
+    topic: Optional[str] = None
 
 class EmailClassificationResponse(BaseModel):
     predicted_topic: str
@@ -32,6 +33,22 @@ class Topic(BaseModel):
     topic: str
     description: str
 
+@router.post("/emails")
+async def emails(email: EmailWithTopicRequest):
+    """Post new email"""
+    try:
+        file_path = Path.cwd() / "data" / "emails.json"
+        emails_store = json.loads(file_path.read_text(encoding="utf-8"))
+
+        # Convert to dict
+        entry = email.model_dump(exclude_none=True, by_alias=True)
+        emails_store.append(entry)
+
+        file_path.write_text(json.dumps(emails_store, ensure_ascii=False, indent=2), encoding="utf-8")
+        return True
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 @router.post("/emails/classify", response_model=EmailClassificationResponse)
 async def classify_email(request: EmailRequest):
     try:
