@@ -106,3 +106,27 @@ class RawEmailFeatureGenerator(BaseFeatureGenerator):
 # 
 # Hint: Use email.subject and email.body to access the text
 # Hint: You can use regex or string methods to count non-alphanumeric characters
+class NonTextCharacterFeatureGenerator(BaseFeatureGenerator):
+    """Counts non-alphanumeric characters"""
+    
+    # Helper function to get non-text character count
+    def get_count_non_text_chars(self, text: str) -> int:
+        """Returns the number of non-alphanumeric."""
+        count = 0
+        for ch in text:
+            if not ch.isalnum() and not ch.isspace():
+                count += 1
+        return count
+    
+    def generate_features(self, email: Email) -> Dict[str, Any]:
+        subject = email.subject
+        body = email.body
+        combined_subject_body = f"{subject} {body}"
+
+        non_text_char_count = self.get_count_non_text_chars(combined_subject_body)
+        # Return as float to match typical feature vector dtypes
+        return {"non_text_char_count": non_text_char_count}
+    
+    @property
+    def feature_names(self) -> list[str]:
+        return ["non_text_char_count"]
