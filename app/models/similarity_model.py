@@ -2,6 +2,7 @@ import os
 import json
 import math
 from typing import Dict, Any, List
+from app.features.factory import GENERATORS
 
 class EmailClassifierModel:
     """Simple rule-based email classifier model"""
@@ -64,3 +65,54 @@ class EmailClassifierModel:
     def get_all_topics_with_descriptions(self) -> Dict[str, str]:
         """Get all topics with their descriptions"""
         return {topic: self.get_topic_description(topic) for topic in self.topics}
+    
+    def _features_to_vector(self, features: Dict[str, Any]) -> list[float]:
+        vec: list[float] = []
+        generator_keys = list(GENERATORS.keys())
+        for k in generator_keys:
+            x = features.get(k, 0.0)
+            if isinstance(x, bool):
+                vec.append(1.0 if x else 0.0)
+            elif isinstance(x, (int, float)):
+                vec.append(float(x))
+            else:
+                # Set to 0 if non-numeric
+                vec.append(0.0)
+        return vec
+
+    def _topic_to_vector(self, topic: str) -> list[float]:
+        desc = self.get_topic_description(topic)
+        combined = f"{topic} {desc}".strip()
+        subject_len = float(len(topic))
+        body_len = float(len(desc))
+        non_text = float(sum(1 for ch in combined if not ch.isalnum() and not ch.isspace()))
+        avg_embed = float(len(combined))
+        return [subject_len, body_len, non_text, avg_embed]
+
+    def predict_cosine_similarity(self, features: Dict[str, Any]) -> str:
+        """Classify email into one of the topics using cosine similarity"""
+        email_vec = self._features_to_vector(features)
+        if not any(email_vec):
+            return self.predict(features)
+
+        scores: Dict[str, float] = {}
+        best_topic = "unknown"
+        best_score = -1.0
+
+        for topic in self.topics:
+            topic_vec = self._topic_to_vector(topic)
+            score = self._cosine(email_vec, topic_vec)
+            scores[topic] = float(score)
+            if score > best_score:
+                best_score = score
+                best_topic = topic
+
+        return best_topic
+    
+    def _cosine(u: list[float], v: list[float]) -> float:
+        if not u or not v or len(u) != len(v):
+            return 0.0
+        dot = sum(ui * vi for ui, vi in zip(u, v))
+        nu = math.sqrt(sum(ui * ui for ui in u))
+        nv = math.sqrt(sum(vi * vi for vi in v))
+        return dot / (nu * nv) if nu and nv else 0.0

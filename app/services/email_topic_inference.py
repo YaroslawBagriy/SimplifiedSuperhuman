@@ -29,6 +29,22 @@ class EmailTopicInferenceService:
             "email": email
         }
     
+    def classify_email_similarity(self, email: Email) -> Dict[str, Any]:
+        # Step 1: Generate features from email
+        features = self.feature_factory.generate_all_features(email)
+        
+        # Step 2: Classify using features
+        predicted_topic = self.model.predict_cosine_similarity(features)
+        topic_scores = self.model.get_topic_scores(features)
+
+        return {
+            "predicted_topic": predicted_topic,
+            "topic_scores": topic_scores,
+            "features": features,
+            "available_topics": self.model.topics,
+            "email": email
+        }
+
     def get_pipeline_info(self) -> Dict[str, Any]:
         """Get information about the inference pipeline"""
         return {

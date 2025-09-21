@@ -10,14 +10,19 @@ from typing import Optional
 
 router = APIRouter()
 
+class Strategy(str, Enum):
+    TOPIC = "topic"
+    SIMILARITY = "similarity"
+
 class EmailRequest(BaseModel):
     subject: str
     body: str
+    strategy: Strategy = Strategy.TOPIC
 
 class EmailWithTopicRequest(BaseModel):
     subject: str
     body: str
-    topic: Optional[str] = None
+    strategy: Strategy = Strategy.TOPIC
 
 class EmailClassificationResponse(BaseModel):
     predicted_topic: str
@@ -54,14 +59,15 @@ async def classify_email(request: EmailRequest):
     try:
         inference_service = EmailTopicInferenceService()
         email = Email(subject=request.subject, body=request.body)
-        result = inference_service.classify_email(email)
-        
+        # if the topic is set to topic, then classify emails by topic
+        # else classify emails by cosine similarity
+        result =  inference_service.classify_email(email) if request.strategy is Strategy.TOPIC else inference_service.classify_email_similarity(email)
         return EmailClassificationResponse(
-            predicted_topic=result["predicted_topic"],
-            topic_scores=result["topic_scores"],
-            features=result["features"],
-            available_topics=result["available_topics"]
-        )
+                predicted_topic=result["predicted_topic"],
+                topic_scores=result["topic_scores"],
+                features=result["features"],
+                available_topics=result["available_topics"]
+            )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
