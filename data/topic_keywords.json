@@ -16,5 +16,8 @@
   },
   "string": {
     "description": "string"
+  },
+  "food": {
+    "description": "food related"
   }
 }

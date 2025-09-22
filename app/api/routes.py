@@ -23,7 +23,7 @@ class EmailRequest(BaseModel):
 class EmailWithTopicRequest(BaseModel):
     subject: str
     body: str
-    strategy: Strategy = Strategy.TOPIC
+    topic: str
 
 class EmailClassificationResponse(BaseModel):
     predicted_topic: str
