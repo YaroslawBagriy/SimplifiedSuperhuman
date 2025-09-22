@@ -7,6 +7,7 @@ from app.features.factory import FeatureGeneratorFactory
 from pathlib import Path
 import json
 from typing import Optional
+from enum import Enum
 
 router = APIRouter()
 
