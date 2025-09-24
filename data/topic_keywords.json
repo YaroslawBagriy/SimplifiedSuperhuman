@@ -14,10 +14,7 @@
   "support": {
     "description": "Customer support, help requests, and technical issues"
   },
-  "string": {
-    "description": "string"
-  },
   "food": {
-    "description": "food related"
+    "description": "Food related emails (i.e. pizzs, hamburger)."
   }
 }

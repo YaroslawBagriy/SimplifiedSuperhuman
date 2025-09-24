@@ -1,8 +1,11 @@
 import os
 import json
 import math
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 from app.features.factory import GENERATORS
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
 class EmailClassifierModel:
     """Simple rule-based email classifier model"""
@@ -65,54 +68,44 @@ class EmailClassifierModel:
     def get_all_topics_with_descriptions(self) -> Dict[str, str]:
         """Get all topics with their descriptions"""
         return {topic: self.get_topic_description(topic) for topic in self.topics}
-    
-    def _features_to_vector(self, features: Dict[str, Any]) -> list[float]:
-        vec: list[float] = []
-        generator_keys = list(GENERATORS.keys())
-        for k in generator_keys:
-            x = features.get(k, 0.0)
-            if isinstance(x, bool):
-                vec.append(1.0 if x else 0.0)
-            elif isinstance(x, (int, float)):
-                vec.append(float(x))
-            else:
-                # Set to 0 if non-numeric
-                vec.append(0.0)
-        return vec
 
-    def _topic_to_vector(self, topic: str) -> list[float]:
-        desc = self.get_topic_description(topic)
-        combined = f"{topic} {desc}".strip()
-        subject_len = float(len(topic))
-        body_len = float(len(desc))
-        non_text = float(sum(1 for ch in combined if not ch.isalnum() and not ch.isspace()))
-        avg_embed = float(len(combined))
-        return [subject_len, body_len, non_text, avg_embed]
+    def _email_corpus(self) -> tuple[list[str], list[str]]:
+        data_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            "data"
+        )
+        emails_path = os.path.join(data_dir, "emails.json")
+
+        if not os.path.exists(emails_path):
+            return [], []
+
+        with open(emails_path, "r") as f:
+            items = json.load(f)
+
+        texts: list[str] = []
+        labels: list[str] = []
+
+        for it in items:
+            subj = (it.get("subject") or "").strip()
+            body = (it.get("body") or "").strip()
+            topic = (it.get("topic") or "").strip()
+            text = f"Subject: {subj}\n\n{body}".strip()
+            texts.append(text) 
+            labels.append(topic)
+
+        return texts, labels
+
 
     def predict_cosine_similarity(self, features: Dict[str, Any]) -> str:
         """Classify email into one of the topics using cosine similarity"""
-        email_vec = self._features_to_vector(features)
-        if not any(email_vec):
-            return self.predict(features)
 
-        scores: Dict[str, float] = {}
-        best_topic = "unknown"
-        best_score = -1.0
+        corpus_texts, corpus_labels = self._email_corpus()
+        tfidf = TfidfVectorizer(ngram_range=(1, 2), stop_words="english", lowercase=True)
+        corpus_matrix = tfidf.fit_transform(corpus_texts)
+        email_vec = tfidf.transform(features)
 
-        for topic in self.topics:
-            topic_vec = self._topic_to_vector(topic)
-            score = self._cosine(email_vec, topic_vec)
-            scores[topic] = float(score)
-            if score > best_score:
-                best_score = score
-                best_topic = topic
 
-        return best_topic
-    
-    def _cosine(u: list[float], v: list[float]) -> float:
-        if not u or not v or len(u) != len(v):
-            return 0.0
-        dot = sum(ui * vi for ui, vi in zip(u, v))
-        nu = math.sqrt(sum(ui * ui for ui in u))
-        nv = math.sqrt(sum(vi * vi for vi in v))
-        return dot / (nu * nv) if nu and nv else 0.0
+        sims = cosine_similarity(email_vec, corpus_matrix).ravel()
+
+        best_idx = int(np.argmax(sims))
+        return corpus_labels[best_idx]
